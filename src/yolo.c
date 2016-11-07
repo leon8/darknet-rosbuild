@@ -10,6 +10,9 @@
 #include "opencv2/highgui/highgui_c.h"
 #endif
 
+extern void load_frame(IplImage* copy);
+extern void label_func(int tl_x, int tl_y, int br_x, int br_y, char *names);
+
 char *voc_names[] = {"aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"};
 
 void train_yolo(char *cfgfile, char *weightfile)
@@ -282,74 +285,161 @@ void validate_yolo_recall(char *cfgfile, char *weightfile)
     }
 }
 
-void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
+void rgbgr_image_as(image im)
 {
-    image *alphabet = load_alphabet();
-    network net = parse_network_cfg(cfgfile);
-    if(weightfile){
-        load_weights(&net, weightfile);
+    int i;
+    for(i = 0; i < im.w*im.h; ++i){
+        float swap = im.data[i];
+        im.data[i] = im.data[i+im.w*im.h*2];
+        im.data[i+im.w*im.h*2] = swap;
     }
-    detection_layer l = net.layers[net.n-1];
-    set_batch_network(&net, 1);
-    srand(2222222);
-    clock_t time;
-    char buff[256];
-    char *input = buff;
-    int j;
-    float nms=.4;
-    box *boxes = calloc(l.side*l.side*l.n, sizeof(box));
-    float **probs = calloc(l.side*l.side*l.n, sizeof(float *));
-    for(j = 0; j < l.side*l.side*l.n; ++j) probs[j] = calloc(l.classes, sizeof(float *));
-    while(1){
-        if(filename){
-            strncpy(input, filename, 256);
-        } else {
-            printf("Enter Image Path: ");
-            fflush(stdout);
-            input = fgets(input, 256, stdin);
-            if(!input) return;
-            strtok(input, "\n");
+}
+
+image make_empty_image_as(int w, int h, int c)
+{
+    image out;
+    out.data = 0;
+    out.h = h;
+    out.w = w;
+    out.c = c;
+    return out;
+}
+
+
+image ipl_to_image_as(IplImage* src)
+{
+    unsigned char *data = (unsigned char *)src->imageData;
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    int step = src->widthStep;
+    image out = make_image(w, h, c);
+    int i, j, k, count=0;;
+
+    for(k= 0; k < c; ++k){
+        for(i = 0; i < h; ++i){
+            for(j = 0; j < w; ++j){
+                out.data[count++] = data[i*step + j*c + k]/255.;
+            }
         }
-        image im = load_image_color(input,0,0);
+    }
+    return out;
+}
+
+
+image get_image_from_stream_as(CvCapture *cap)
+{
+    IplImage* src = cvQueryFrame(cap);
+    if (!src) return make_empty_image_as(0,0,0);
+    image im = ipl_to_image_as(src);
+    rgbgr_image_as(im);
+    return im;
+}
+
+void rect_detections(image im, int num, float thresh, box *boxes, float **probs, char **names, image *alphabet, int classes)
+{
+    int i;
+
+    for(i = 0; i < num; ++i){
+        int class = max_index(probs[i], classes);
+        float prob = probs[i][class];
+        if(prob > thresh){
+
+            box b = boxes[i];
+
+            int temp_tl_x = (b.x-b.w/2.)*im.w;
+            int temp_tl_y = (b.y-b.h/2.)*im.h;
+
+            int temp_br_x = (b.x+b.w/2.)*im.w;
+            int temp_br_y = (b.y+b.h/2.)*im.h;
+
+          //  image label = get_label(alphabet, names[class]);
+
+            label_func(temp_tl_x, temp_tl_y, temp_br_x, temp_br_y, names[class]);
+
+          // printf("%s, at (%d,%d)",names[class],tl_x,tl_y);
+
+        }
+
+    }
+}
+
+//input variables to be declared
+
+char *cfg;
+char *weights;
+float thresh;
+
+//sub varibles
+image *alphabet;
+network net;
+detection_layer l;
+clock_t time2;
+char *input; 
+float nms;
+
+box *boxes;
+float **probs;
+CvCapture *capture;
+
+
+
+void test_yolo()
+{
+        IplImage* img2cpp = cvQueryFrame(capture);
+
+        image im = get_image_from_stream_as(capture);
+
         image sized = resize_image(im, net.w, net.h);
         float *X = sized.data;
-        time=clock();
+        time2=clock();
         network_predict(net, X);
-        printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
+        printf("Predicted in %f seconds.\n", sec(clock()-time2));
         get_detection_boxes(l, 1, 1, thresh, probs, boxes, 0);
         if (nms) do_nms_sort(boxes, probs, l.side*l.side*l.n, l.classes, nms);
-        //draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, alphabet, 20);
         draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, alphabet, 20);
-        save_image(im, "predictions");
+        //rect_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, alphabet, 20);
+        //load_frame(img2cpp);
+
+        //save_image(im, "predictions");
         show_image(im, "predictions");
 
         free_image(im);
         free_image(sized);
 #ifdef OPENCV
-        cvWaitKey(0);
-        cvDestroyAllWindows();
+        cvWaitKey(5);
 #endif
-        if (filename) break;
-    }
 }
 
-void run_yolo(int argc, char **argv)
-{
-    char *prefix = find_char_arg(argc, argv, "-prefix", 0);
-    float thresh = find_float_arg(argc, argv, "-thresh", .2);
-    int cam_index = find_int_arg(argc, argv, "-c", 0);
-    int frame_skip = find_int_arg(argc, argv, "-s", 0);
-    if(argc < 4){
-        fprintf(stderr, "usage: %s %s [train/test/valid] [cfg] [weights (optional)]\n", argv[0], argv[1]);
-        return;
-    }
+void init_yolo(){
+    // default test
+    cfg = "cfg/yolo.cfg";
+    weights = "yolo.weights";
+    thresh = .15;
+    //test_yolo(cfg, weights, thresh);
 
-    char *cfg = argv[3];
-    char *weights = (argc > 4) ? argv[4] : 0;
-    char *filename = (argc > 5) ? argv[5]: 0;
-    if(0==strcmp(argv[2], "test")) test_yolo(cfg, weights, filename, thresh);
-    else if(0==strcmp(argv[2], "train")) train_yolo(cfg, weights);
-    else if(0==strcmp(argv[2], "valid")) validate_yolo(cfg, weights);
-    else if(0==strcmp(argv[2], "recall")) validate_yolo_recall(cfg, weights);
-    else if(0==strcmp(argv[2], "demo")) demo(cfg, weights, thresh, cam_index, filename, voc_names, 20, frame_skip, prefix);
+    alphabet = load_alphabet();
+    net = parse_network_cfg(cfg);
+    if(weights){
+        load_weights(&net, weights);
+    }
+    l = net.layers[net.n-1];
+    set_batch_network(&net, 1);
+    srand(2222222);
+    char buff[256];
+    input = buff;
+
+    int j;
+    nms=.4;
+    boxes = calloc(l.side*l.side*l.n, sizeof(box));
+    probs = calloc(l.side*l.side*l.n, sizeof(float *));
+    for(j = 0; j < l.side*l.side*l.n; ++j) 
+       probs[j] = calloc(l.classes, sizeof(float *));
+
+    capture = cvCaptureFromAVI("data/nucl.avi");
+}
+
+void run_yolo()
+{
+    test_yolo();
 }

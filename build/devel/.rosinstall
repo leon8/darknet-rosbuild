@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/hxhx/darknet-rosbuild/build/devel/setup.sh

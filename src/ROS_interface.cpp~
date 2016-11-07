@@ -1,0 +1,21 @@
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
+#include "opencv2/cudabgsegm.hpp"
+#include "opencv2/cudalegacy.hpp"
+#include "opencv2/cudaoptflow.hpp"
+#include "opencv2/cudaarithm.hpp"
+#include "opencv2/cudaobjdetect.hpp"
+
+
+cv::Mat cam;
+
+/*
+IplImage* get_Ipl_image()
+{
+   IplImage* ROS_img = new IplImage(cam_image_copy);
+   return ROS_img;
+}
+*/
+
+

@@ -8,6 +8,7 @@
 #include <math.h>
 #include "box.h"
 
+
 typedef struct {
     int h;
     int w;
@@ -69,6 +70,7 @@ image float_to_image(int w, int h, int c, float *data);
 image copy_image(image p);
 image load_image(char *filename, int w, int h, int c);
 image load_image_color(char *filename, int w, int h);
+//image load_stream_color(CvCapture *capture);
 image *load_alphabet();
 
 float get_pixel(image m, int x, int y, int c);
