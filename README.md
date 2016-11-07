@@ -1,8 +1,4 @@
-![Darknet Logo](http://pjreddie.com/media/files/darknet-black-small.png)
-
 #Darknet#
-Darknet is an open source neural network framework written in C and CUDA. It is fast, easy to install, and supports CPU and GPU computation.
-
 For more information see the [Darknet project website](http://pjreddie.com/darknet).
 
 For questions or issues please use the [Google Group](https://groups.google.com/forum/#!forum/darknet).
@@ -10,25 +6,28 @@ For questions or issues please use the [Google Group](https://groups.google.com/
 
 IMPORTANT!:
 
-option 1: unlinkable with ros
-refer to c++ in c document online:
-http://www.thegeekstuff.com/2013/01/mix-c-and-cpp/?utm_source=feedburner
+This is a variation of the darknet yolo fast rcnn project. This version integrates with ROS and tested with the following specs:
 
-run this command to obtain c++ .so file:
-1. g++ -c -Wall -Werror -fPIC interface.cpp -DOPENCV -DGPU -I/usr/local/cuda/include/ -L/usr/local/cuda/lib64 -lcuda -lcudart -lcublas -lcurand
+14.04 Ubuntu LTS
+GTX 970
+Cuda 7.5
+OpenCV 3.1
+ROS indigo
 
-2.  g++ -shared -o libcppfile.so interface.o
+This version however may or may not work with cv_bridge. Depends on your system. 
 
+There are a couple of file been modified:
 
-OR
+darknet.c
+darknet.h
+yolo.c
+run_darknet.cpp
 
-option 2: cmake
+These are the only files you need to modify to run yolo.weights and do a evalution.
 
-1. cd to build folder
-2. cmake ..
-3. make
-4. export LD_LIBRARY_PATH=/home/hxhx/darknet-cmake/libfolder:$LD_LIBRARY_PATH
+To compile, shift this folder into somewhere you know and type "rosmake"
 
+If you fail to compile, please rmb to run this:
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:'pwd'
 
-WORKING!
 
